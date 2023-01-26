@@ -26,51 +26,6 @@
 	// run plugin initialization file.
 	require 'base.php';
 	require  'includes/functions.php';
-	
-add_filter( 'woocommerce_currencies', 'trelis_add_crypto' );
-
-function trelis_add_crypto( $currencies ) {
-    $currencies['ETH'] = __( 'ETH', 'woocommerce' );
-    $currencies['USDC'] = __( 'USDC', 'woocommerce' );
-    return $currencies;
-}
-
-add_filter('woocommerce_currency_symbol', 'trelis_add_currency_symbols', 10, 2);
-
-function trelis_add_currency_symbols( $currency_symbol, $currency ) {
-    switch( $currency ) {
-        case 'ETH': $currency_symbol = 'ETH'; break;
-        case 'USDC': $currency_symbol = 'USDC'; break;
-    }
-    return $currency_symbol;
-}
-
-function trelis_get_currency() {
-    global  $woocommerce;
-    $currency = get_woocommerce_currency();
-
-    switch ($currency) {
-        case 'ETH':
-        case 'USDC':
-            return null;
-        default:
-            return $currency;
-    }
-}
-
-function trelis_get_token() {
-    global  $woocommerce;
-    $currency = get_woocommerce_currency();
-
-    switch ($currency) {
-        case 'ETH':
-        case 'USDC':
-            return $currency;
-        default:
-            return 'USDC';
-    }
-}
-
 
 /*
 * Payment callback Webhook, Used to process the payment callback from the payment gateway
@@ -102,7 +57,7 @@ function trelis_payment_confirmation_callback()
     $order_id = $orders[0]->ID;
     $order = wc_get_order($order_id);
 
-    if ($order->get_status() == 'processing' || $order->get_status() == 'complete')
+    if ( $order->get_status() == 'processing' || $order->get_status() == 'complete')
         return __('Already processed','trelis-crypto-payments');
 
     if ($data->event === "submission.failed" || $data->event === "charge.failed") {
@@ -121,17 +76,6 @@ function trelis_payment_confirmation_callback()
     return __('Processed!','trelis-crypto-payments');
 }
 
-add_action("rest_api_init", function () {
-    register_rest_route(
-        'trelis/v3',
-        '/payment',
-        array(
-            'methods' => 'POST',
-            'callback' => 'trelis_payment_confirmation_callback',
-            'permission_callback' => '__return_true'
-        ),
-    );
-});
 
 
 
@@ -140,17 +84,17 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
 	
 }
+	//add_action( 'woocommerce_checkout_process', 'var_dump_checkout_data' );
+	function var_dump_checkout_data() {
+		error_log( print_r( $_POST, true) );
+		die();
+	}
 
-function wc_trelis_gateway(){
-	$wc = Trelis\Classes\Wc_Trelis_Gateway::get_instance();
-	
-	return $wc;
-}
 add_action('plugins_loaded', 'plugins_loading');
 
 function plugins_loading(){
 	Trelis\Base::instance()->init();
 	
-	trelis_wc_gateway();
+	//trelis_wc_gateway();
 }
 

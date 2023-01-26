@@ -1,7 +1,7 @@
 <?php
 	namespace Trelis\Classes;
-	
-	if (class_exists('WC_Payment_Gateway')) {
+
+if (class_exists('WC_Payment_Gateway')) {
 		
 		class Wc_Trelis_Gateway extends \WC_Payment_Gateway {
 			
@@ -21,20 +21,11 @@
 			
 			public function __construct() {
 				$this -> id       = 'trelis';
-				$this -> icon     = 'https://www.trelis.com/assets/trelis.2e0ed160.png';
+				$this -> icon     = TRELIS_PLUGIN_URL . 'assets/icons/trelis.png';
 				$this -> supports = array (
 					'products',
-					'subscriptions',
-					'subscription_cancellation',
-					'subscription_suspension',
-					'subscription_reactivation',
-					'subscription_amount_changes',
-					'subscription_date_changes',
-					'subscription_payment_method_change',
-					'subscription_payment_method_change_customer',
-					'subscription_payment_method_change_admin',
-					'multiple_subscriptions',
 				);
+
 				
 				$this -> trelis_init_form_fields();
 				$this -> init_settings();
@@ -53,10 +44,7 @@
 					$this -> title = __( 'Trelis Crypto Payments', 'trelis-crypto-payments' );
 				}
 				
-				if ( is_checkout() ) {
-					wp_register_style( "trelis", plugins_url( '/assets/css/trelis.css', __FILE__ ), '', '1.0.0' );
-					wp_enqueue_style( 'trelis' );
-				}
+				add_action('wp_enqueue_scripts', [$this, 'style_enqueue']);
 			}
 			
 			public function trelis_init_form_fields() {
@@ -102,6 +90,12 @@
 					),
 				);
 			}
+
+			public function style_enqueue(){
+				if ( is_checkout() ) {
+					wp_enqueue_style( "trelis", TRELIS_PLUGIN_URL .'assets/css/trelis.css', '1.0.0' );
+				}
+			}
 			
 			public function process_payment( $order_id ) {
 				global $woocommerce;
@@ -112,7 +106,7 @@
 				$isPrime   = $this -> get_option( 'prime' ) === "yes";
 				$isGasless = $this -> get_option( 'gasless' ) === "yes";
 				
-				$apiUrl = 'https://api.trelis.com/dev-api/create-dynamic-link?apiKey=' . $apiKey . "&apiSecret=" . $apiSecret;
+				$apiUrl = 'https://api.trelis.com/dev-env/dev-api/create-dynamic-link?apiKey=' . $apiKey . "&apiSecret=" . $apiSecret;
 				
 				$args = array (
 					'headers' => array (
