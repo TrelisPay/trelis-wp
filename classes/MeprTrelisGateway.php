@@ -10,7 +10,7 @@
 			$this -> name = 'Trelis';
 			$this -> icon = TRELIS_PLUGIN_URL . 'assets/icons/trelis.png';
 			$this -> desc = __( 'Pay with Wallet', 'memberpress' );
-			$this -> key  = __( 'trelis', 'memberpress' );
+			$this -> key  = 'trelis';
 			$this -> set_defaults();
 			$this -> has_spc_form = false;
 			
@@ -39,54 +39,47 @@
 			
 			$this->settings = (object)array_merge(
 				array(
-					'gateway' => 'MeprTrelisGateway',
-					'id' => $this->generate_id(),
-					'label' => 'Trelis',
-					'use_label' => true,
-					'use_icon' => true,
-					'use_desc' => true,
-					'email' => '',
-					'sandbox' => false,
-					'force_ssl' => false,
-					'debug' => false,
-					'test_mode' => false,
-					'api_keys' => array(
-						'live' => array(
-							'api_key' => '',
-							'api_secret' => ''
-						),
-						'test' => array(
-							'api_key' => '',
-							'api_secret' => ''
-						)
-					),
-					'connect_status' => false,
-					'service_account_id' => '',
-					'service_account_name' => '',
+				  'gateway' => 'MeprTrelisGateway',
+				  'id' => $this->generate_id(),
+				  'label' => 'Trelis',
+				  'use_label' => true,
+				  'icon' => TRELIS_PLUGIN_URL . 'assets/icons/trelis.png',
+				  'use_icon' => true,
+				  'desc' => __('Pay via your Trelis account', 'memberpress'),
+				  'use_desc' => true,
+				  'api_key' => '',
+				  'api_secret' => '',
+				  'webhook_secret' => '',
+				  'signature' => '',
+				  'sandbox' => false,
+				  'debug' => false
 				),
 				(array)$this->settings
-			);
-			
-			$this->id = $this->settings->id;
-			$this->label = $this->settings->label;
-			$this->use_label = $this->settings->use_label;
-			$this->use_icon = $this->settings->use_icon;
-			$this->use_desc = $this->settings->use_desc;
-			// $this->connect_status = $this->settings->connect_status;
-			// $this->service_account_id = $this->settings->service_account_id;
-			// $this->service_account_name = $this->settings->service_account_name;
-			//$this->recurrence_type = $this->settings->recurrence_type;
-			
-			if($this->is_test_mode()) {
-				$this->settings->public_key = trim($this->settings->api_keys['test']['api_key']);
-				$this->settings->secret_key = trim($this->settings->api_keys['test']['api_secret']);
-				$this->settings->api_url = '';
-			}
-			else {
-				$this->settings->public_key = trim($this->settings->api_keys['live']['api_key']);
-				$this->settings->secret_key = trim($this->settings->api_keys['live']['api_secret']);
-				$this->settings->api_url = '';
-			}
+			  );
+		  
+			  $this->id = $this->settings->id;
+			  $this->label = $this->settings->label;
+			  $this->use_label = $this->settings->use_label;
+			  $this->icon = $this->settings->icon;
+			  $this->use_icon = $this->settings->use_icon;
+			  $this->desc = $this->settings->desc;
+			  $this->use_desc = $this->settings->use_desc;
+		  
+			  if($this->is_test_mode()) {
+				$this->settings->url     = 'aa';
+				$this->settings->api_url = 'aa';
+			  }
+			  else {
+				$this->settings->url = 'bb';
+				$this->settings->api_url = 'bb';
+			  }
+		  
+			//   $this->settings->api_version = 69;
+		  
+			  // An attempt to correct people who paste in spaces along with their credentials
+			  $this->settings->api_key = trim($this->settings->api_key);
+			  $this->settings->api_secret = $this->settings->api_secret;
+			  $this->settings->webhook_secret = $this->settings->webhook_secret;
 		}
 		
 		public function process_payment($txn) {
@@ -167,11 +160,54 @@
 		}
 		
 		public function display_options_form(  ) {
-		
-		}
+			$mepr_options = MeprOptions::fetch();
+
+			$api_key = trim($this->settings->api_key);
+			$api_secret = trim($this->settings->api_secret);
+			$webhook_secret    = trim($this->settings->webhook_secret);
+
+			$sandbox      = ($this->settings->sandbox == 'on' or $this->settings->sandbox == true);
+			$debug        = ($this->settings->debug == 'on' or $this->settings->debug == true);
+		 ?>
+      <div x-data="{ open: true }">
+    
+
+
+    <table x-show="open">
+      
+      <tr class="advanced_mode_row-<?php echo $this->id;?> ">
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em><?php _e('API Key:', 'memberpress'); ?></em></td>
+        <td><input type="text" class="mepr-auto-trim" name="<?php echo $mepr_options->integrations_str; ?>[<?php echo $this->id;?>][api_key]" value="<?php echo $api_key; ?>" /></td>
+      </tr>
+      <tr class="advanced_mode_row-<?php echo $this->id;?> ">
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em><?php _e('API Secret:', 'memberpress'); ?></em></td>
+        <td><input type="password" class="mepr-auto-trim" name="<?php echo $mepr_options->integrations_str; ?>[<?php echo $this->id;?>][api_secret]" value="<?php echo $api_secret; ?>" /></td>
+      </tr>
+      <tr class="advanced_mode_row-<?php echo $this->id;?>">
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em><?php _e('Webhook Secret:', 'memberpress'); ?></em></td>
+        <td><input type="password" class="mepr-auto-trim" name="<?php echo $mepr_options->integrations_str; ?>[<?php echo $this->id;?>][webhook_secret]" value="<?php echo $webhook_secret; ?>" /></td>
+      </tr>
+     
+      
+    	</table>
+      </div>
+    <?php
+	}
 		
 		public function validate_options_form($errors) {
-		
+			$mepr_options = MeprOptions::fetch();
+
+			if( !isset($_POST[$mepr_options->integrations_str][$this->id]['api_key']) or
+				empty($_POST[$mepr_options->integrations_str][$this->id]['api_key'])) {
+				$errors[] = __("API Key field can't be blank.", 'memberpress');
+			}
+
+			if( !isset($_POST[$mepr_options->integrations_str][$this->id]['api_secret']) or
+				empty($_POST[$mepr_options->integrations_str][$this->id]['api_secret']) ) {
+				$errors[] = __("API Secret field can't be blank.", 'memberpress');
+			}
+
+    		return $errors;
 		}
 		
 		public function  enqueue_payment_form_scripts() {

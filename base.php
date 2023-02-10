@@ -43,6 +43,7 @@ final class Base{
 		define( 'TRELIS_VERSION', '1.0.19' );
 		define( 'TRELIS_PLUGIN_URL', trailingslashit( plugin_dir_url( __FILE__ ) ) );
 		define( 'TRELIS_PLUGIN_DIR', trailingslashit( plugin_dir_path( __FILE__ ) ) );
+		define( 'TRELIS_TESTING', false );
 	}
 	
 	public function init(){
