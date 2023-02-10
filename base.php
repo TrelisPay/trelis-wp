@@ -1,9 +1,9 @@
 <?php
 
-namespace Trelis;
+namespace Trelis\TrelisWp;
 
-use Trelis\Classes\Wc_Trelis_Gateway;
-use Trelis\Classes\Wc_Trelis_Subscription_Gateway;
+
+use Trelis\TrelisWp\MemberpressGateway as TrelisWpMemberpressGateway;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -23,7 +23,11 @@ final class Base{
 	 */
 	public function __construct() {
 		$this->define_constant();
-		Autoloader::run();
+		
+		
+		if ( class_exists( 'MeprBaseCtrl' ) ) {
+			new TrelisWpMemberpressGateway();
+		}
 	}
 	
 	/**
@@ -42,12 +46,15 @@ final class Base{
 	public function init(){
 		
 		add_filter('woocommerce_payment_gateways', [$this, 'trelis_add_gateway_class']);
+		//check if memberpress is active
+		
 		
 	}
 	
 	function trelis_add_gateway_class($gateways)
 	{
 		$gateways[] = Wc_Trelis_Gateway::class;
+
 		if(class_exists( 'WC_Subscriptions') ){
 			$gateways[] = Wc_Trelis_Subscription_Gateway::class;
 		}

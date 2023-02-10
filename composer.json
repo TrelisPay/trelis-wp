@@ -1,0 +1,17 @@
+{
+    "name": "trelis/trelis-wp",
+    "type": "wordpress-plugin",
+    "autoload": {
+        "psr-4": {
+            "Trelis\\TrelisWp\\": "classes/",
+            "Trelis\\Traits\\": "traits/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Trelis"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {}
+}

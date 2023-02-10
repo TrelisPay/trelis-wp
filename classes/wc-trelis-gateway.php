@@ -1,5 +1,5 @@
 <?php
-	namespace Trelis\Classes;
+	namespace Trelis\TrelisWp;
 
 if (class_exists('WC_Payment_Gateway')) {
 		

@@ -1,13 +1,13 @@
 <?php
-	namespace Trelis\Classes;
-	
+	namespace Trelis\TrelisWp;
 
-	
+	use Trelis\Traits\WC_Trelis_Subscriptions_Trait;
+
 //	This file is no need. Woo deprecicate the way extend payment gateway. new in includes/functions.php
 
 
-use PHPMailer\PHPMailer\Exception;
-use Trelis\Traits\WC_Trelis_Subscriptions_Trait;
+
+
 
 if (class_exists('WC_Payment_Gateway')) {
 		

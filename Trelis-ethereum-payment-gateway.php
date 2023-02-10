@@ -22,7 +22,7 @@
 	
 // run auto loader.
 	
-	require 'autoloader.php';
+	require 'vendor/autoload.php';
 	// run plugin initialization file.
 	require 'base.php';
 	require  'includes/functions.php';
@@ -93,7 +93,8 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 add_action('plugins_loaded', 'plugins_loading');
 
 function plugins_loading(){
-	Trelis\Base::instance()->init();
+	// Trelis\Base::instance()->init();
+    Trelis\TrelisWp\Base::instance()->init();
 	
 	//trelis_wc_gateway();
 }
