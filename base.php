@@ -2,8 +2,7 @@
 
 namespace Trelis\TrelisWp;
 
-
-use Trelis\TrelisWp\MemberpressGateway as TrelisWpMemberpressGateway;
+use MeprPayPalGateway;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -25,9 +24,12 @@ final class Base{
 		$this->define_constant();
 		
 		
-		if ( class_exists( 'MeprBaseCtrl' ) ) {
-			new TrelisWpMemberpressGateway();
-		}
+		// if ( class_exists( 'MeprBaseCtrl' ) ) {
+		// 	new MeprTrelisGateway();
+
+		// 	var_dump(new MeprTrelisGateway());
+		// 	var_dump(new MeprPayPalGateway());
+		// }
 	}
 	
 	/**
@@ -47,8 +49,16 @@ final class Base{
 		
 		add_filter('woocommerce_payment_gateways', [$this, 'trelis_add_gateway_class']);
 		//check if memberpress is active
+		add_filter('mepr-gateway-paths', [$this,'mepr_gateway_path']);
 		
+	}
+
+	public function mepr_gateway_path($paths){
+		$paths[] = TRELIS_PLUGIN_DIR . 'classes';
 		
+		// var_dump($paths);
+		return $paths;
+
 	}
 	
 	function trelis_add_gateway_class($gateways)

@@ -1,9 +1,9 @@
 <?php
 	
-	namespace Trelis\TrelisWp;
 	
+	if(class_exists('MeprBaseCtrl')){
 	// create custom payment gateway class for memberpress
-	class MemberpressGateway extends \MeprBaseRealGateway {
+	class MeprTrelisGateway extends \MeprBaseRealGateway {
 		
 		/** Used in the view to identify the gateway */
 		public function __construct() {
@@ -12,7 +12,7 @@
 			$this -> desc = __( 'Pay with Wallet', 'memberpress' );
 			$this -> key  = __( 'trelis', 'memberpress' );
 			$this -> set_defaults();
-			$this -> has_spc_form = true;
+			$this -> has_spc_form = false;
 			
 			$this -> capabilities = array (
 				'process-payments',
@@ -39,9 +39,9 @@
 			
 			$this->settings = (object)array_merge(
 				array(
-					'gateway' => MemberpressGateway::class,
+					'gateway' => 'MeprTrelisGateway',
 					'id' => $this->generate_id(),
-					'label' => '',
+					'label' => 'Trelis',
 					'use_label' => true,
 					'use_icon' => true,
 					'use_desc' => true,
@@ -52,6 +52,10 @@
 					'test_mode' => false,
 					'api_keys' => array(
 						'live' => array(
+							'api_key' => '',
+							'api_secret' => ''
+						),
+						'test' => array(
 							'api_key' => '',
 							'api_secret' => ''
 						)
@@ -68,18 +72,20 @@
 			$this->use_label = $this->settings->use_label;
 			$this->use_icon = $this->settings->use_icon;
 			$this->use_desc = $this->settings->use_desc;
-			$this->connect_status = $this->settings->connect_status;
-			$this->service_account_id = $this->settings->service_account_id;
-			$this->service_account_name = $this->settings->service_account_name;
+			// $this->connect_status = $this->settings->connect_status;
+			// $this->service_account_id = $this->settings->service_account_id;
+			// $this->service_account_name = $this->settings->service_account_name;
 			//$this->recurrence_type = $this->settings->recurrence_type;
 			
 			if($this->is_test_mode()) {
 				$this->settings->public_key = trim($this->settings->api_keys['test']['api_key']);
 				$this->settings->secret_key = trim($this->settings->api_keys['test']['api_secret']);
+				$this->settings->api_url = '';
 			}
 			else {
 				$this->settings->public_key = trim($this->settings->api_keys['live']['api_key']);
 				$this->settings->secret_key = trim($this->settings->api_keys['live']['api_secret']);
+				$this->settings->api_url = '';
 			}
 		}
 		
@@ -204,3 +210,4 @@
 			
 		}
 	}
+}
