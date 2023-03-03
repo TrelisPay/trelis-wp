@@ -1,11 +1,8 @@
 <?php
-	
-	
-	if(class_exists('MeprBaseCtrl')){
-	// create custom payment gateway class for memberpress
+
 	class MeprTrelisGateway extends \MeprBaseRealGateway {
-		
-		/** Used in the view to identify the gateway */
+        
+        /** Used in the view to identify the gateway */
 		public function __construct() {
 			$this -> name = 'Trelis';
 			$this -> icon = TRELIS_PLUGIN_URL . 'assets/icons/trelis.png';
@@ -82,7 +79,60 @@
 			  $this->settings->webhook_secret = $this->settings->webhook_secret;
 		}
 		
-		public function process_payment($txn) {
+		
+		public function display_options_form() {
+			$mepr_options = MeprOptions::fetch();
+
+			$api_key = trim($this->settings->api_key);
+			$api_secret = trim($this->settings->api_secret);
+			$webhook_secret    = trim($this->settings->webhook_secret);
+
+			// $sandbox      = ($this->settings->sandbox == 'on' or $this->settings->sandbox == true);
+			// $debug        = ($this->settings->debug == 'on' or $this->settings->debug == true); ?>
+            
+            <div x-data="{ open: true }">
+                <table x-show="open">
+                    <tr class="advanced_mode_row-<?php echo $this->id;?> ">
+                        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em><?php _e('API Key:', 'memberpress'); ?></em></td>
+                        <td><input type="text" class="mepr-auto-trim" name="<?php echo $mepr_options->integrations_str; ?>[<?php echo $this->id;?>][api_key]" value="<?php echo $api_key; ?>" /></td>
+                    </tr>
+                    <tr class="advanced_mode_row-<?php echo $this->id;?> ">
+                        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em><?php _e('API Secret:', 'memberpress'); ?></em></td>
+                        <td><input type="password" class="mepr-auto-trim" name="<?php echo $mepr_options->integrations_str; ?>[<?php echo $this->id;?>][api_secret]" value="<?php echo $api_secret; ?>" /></td>
+                    </tr>
+                    <tr class="advanced_mode_row-<?php echo $this->id;?>">
+                        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em><?php _e('Webhook Secret:', 'memberpress'); ?></em></td>
+                        <td><input type="password" class="mepr-auto-trim" name="<?php echo $mepr_options->integrations_str; ?>[<?php echo $this->id;?>][webhook_secret]" value="<?php echo $webhook_secret; ?>" /></td>
+                    </tr>
+                </table>
+            </div>
+        <?php }
+		
+		public function validate_options_form($errors) {
+			$mepr_options = MeprOptions::fetch();
+
+			if( !isset($_POST[$mepr_options->integrations_str][$this->id]['api_key']) or
+				empty($_POST[$mepr_options->integrations_str][$this->id]['api_key'])) {
+				$errors[] = __("API Key field can't be blank.", 'memberpress');
+			}
+
+			if( !isset($_POST[$mepr_options->integrations_str][$this->id]['api_secret']) or
+				empty($_POST[$mepr_options->integrations_str][$this->id]['api_secret']) ) {
+				$errors[] = __("API Secret field can't be blank.", 'memberpress');
+			}
+
+    		return $errors;
+		}
+		
+		public function is_test_mode() {
+			if (defined('TRELIS_TESTING') && TRELIS_TESTING == true) {
+				$this->settings->test_mode = true;
+				return true;
+			  }
+			  return (isset($this->settings->test_mode) && $this->settings->test_mode);
+		}
+
+        public function process_payment($txn) {
 		
 		}
 		
@@ -158,59 +208,7 @@
 		public function display_payment_page($txn) {
 		
 		}
-		
-		public function display_options_form(  ) {
-			$mepr_options = MeprOptions::fetch();
-
-			$api_key = trim($this->settings->api_key);
-			$api_secret = trim($this->settings->api_secret);
-			$webhook_secret    = trim($this->settings->webhook_secret);
-
-			$sandbox      = ($this->settings->sandbox == 'on' or $this->settings->sandbox == true);
-			$debug        = ($this->settings->debug == 'on' or $this->settings->debug == true);
-		 ?>
-      <div x-data="{ open: true }">
-    
-
-
-    <table x-show="open">
-      
-      <tr class="advanced_mode_row-<?php echo $this->id;?> ">
-        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em><?php _e('API Key:', 'memberpress'); ?></em></td>
-        <td><input type="text" class="mepr-auto-trim" name="<?php echo $mepr_options->integrations_str; ?>[<?php echo $this->id;?>][api_key]" value="<?php echo $api_key; ?>" /></td>
-      </tr>
-      <tr class="advanced_mode_row-<?php echo $this->id;?> ">
-        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em><?php _e('API Secret:', 'memberpress'); ?></em></td>
-        <td><input type="password" class="mepr-auto-trim" name="<?php echo $mepr_options->integrations_str; ?>[<?php echo $this->id;?>][api_secret]" value="<?php echo $api_secret; ?>" /></td>
-      </tr>
-      <tr class="advanced_mode_row-<?php echo $this->id;?>">
-        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em><?php _e('Webhook Secret:', 'memberpress'); ?></em></td>
-        <td><input type="password" class="mepr-auto-trim" name="<?php echo $mepr_options->integrations_str; ?>[<?php echo $this->id;?>][webhook_secret]" value="<?php echo $webhook_secret; ?>" /></td>
-      </tr>
-     
-      
-    	</table>
-      </div>
-    <?php
-	}
-		
-		public function validate_options_form($errors) {
-			$mepr_options = MeprOptions::fetch();
-
-			if( !isset($_POST[$mepr_options->integrations_str][$this->id]['api_key']) or
-				empty($_POST[$mepr_options->integrations_str][$this->id]['api_key'])) {
-				$errors[] = __("API Key field can't be blank.", 'memberpress');
-			}
-
-			if( !isset($_POST[$mepr_options->integrations_str][$this->id]['api_secret']) or
-				empty($_POST[$mepr_options->integrations_str][$this->id]['api_secret']) ) {
-				$errors[] = __("API Secret field can't be blank.", 'memberpress');
-			}
-
-    		return $errors;
-		}
-		
-		public function  enqueue_payment_form_scripts() {
+        public function  enqueue_payment_form_scripts() {
 		
 		}
 		
@@ -233,17 +231,7 @@
 		public function process_update_account_form($subscription_id) {
 			
 		}
-		
-		public function is_test_mode() {
-			if (defined('TRELIS_TESTING') && TRELIS_TESTING == true) {
-				$this->settings->test_mode = true;
-				return true;
-			  }
-			  return (isset($this->settings->test_mode) && $this->settings->test_mode);
-		}
-		
-		public function force_ssl(  ) {
+        public function force_ssl(  ) {
 			
 		}
-	}
 }
