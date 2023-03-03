@@ -73,9 +73,12 @@ class Trelis_Crypto_Payments_Public {
 		 * class.
 		 */
 
-		if (is_checkout()) {
-		wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/trelis-crypto-payments-public.css', array(), $this->version, 'all' );
-		}
+		 if(class_exists('WooCommerce'))
+		 {
+			 if (is_checkout()) {
+				 wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/trelis-crypto-payments-public.css', array(), $this->version, 'all' );
+			 }
+		 }
 
 	}
 

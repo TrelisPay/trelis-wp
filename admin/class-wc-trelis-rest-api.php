@@ -40,6 +40,11 @@ class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
 	 */
 	private $version;
 
+	public $apiKey;
+	public $apiSecret;
+	public $isPrime;
+	public $isGasless;
+
 	/**
 	 * Define the core functionality of the plugin.
 	 *
@@ -50,6 +55,10 @@ class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
 	 * @since    1.0.0
 	 */
 	public function __construct() {
+		$this->apiKey = $this->get_option('api_key');
+		$this->apiSecret = $this->get_option('api_secret');
+		$this->isPrime = $this->get_option('prime') === "yes";
+		$this->isGasless = $this->get_option('gasless') === "yes";
 		add_action( 'rest_api_init', array( $this, 'register_trelis_payment' ) );
 	}
 	
@@ -116,10 +125,14 @@ class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
 			$customerWalletId = $data->from;
 			$subscriptionId   = $subscription->get_id();
 			update_post_meta( $subscriptionId, 'customerWalletId', $customerWalletId );
-
+			
 			$order->add_order_note(__('Payment complete!','trelis-crypto-payments'), true);
 			$order->payment_complete();
 			$order->reduce_order_stock();
+
+			// call the run subscription API once subscription completes
+			$this->run_subscription_api($order,$subscriptionId,array($subscriptionId));
+			
 			if ( isset( WC()->cart ) ) {
 				WC()->cart->empty_cart();
 			}
@@ -161,6 +174,40 @@ class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
 		$file = fopen($upload_dir['basedir']."/trelis_logs.log","a"); 
 		echo fwrite($file, "\n" . date('Y-m-d h:i:s') ." :: ". $apitype ." :: " . $message); 
 		fclose($file); 
+	}
+
+	public function run_subscription_api($order,$subscriptionId,$customerWalletIds) {
+		$args = array (
+			'headers' => array (
+				'Content-Type' => "application/json"
+			),
+			'body' => json_encode( array (
+				'customers' => $customerWalletIds
+			) )
+		);
+
+		$apiUrl = TRELIS_API_URL.'run-subscription?apiKey=' . $this->apiKey . '&apiSecret=' . $this->apiSecret;
+		$response = wp_remote_post($apiUrl, $args);
+		$headers = array('Content-Type: text/html; charset=UTF-8');
+		wp_mail( 'jalpesh@yopmail.com', 'Trelis run subscription API', print_r($response,true), $headers );
+		$this->custom_logs('run subscription api in webhook response',$response);
+		if (!is_wp_error($response)) {
+			$body = json_decode($response['body'], true);
+			if($body['data']['event'] == 'subscription.create.success')
+			{
+				update_post_meta( $subscriptionId, 'trelis_subscriptionLink', $body['data']['subscriptionLink'] );
+				update_post_meta( $subscriptionId, 'trelis_payment_method', true );
+				$order->add_order_note(__('Subscription complete','trelis-crypto-payments'), true);
+			}else{
+				wc_add_notice(__('Subscription not complete at Trelis','trelis-crypto-payments'), 'error');
+				$order->add_order_note(__('Subscription not complete at Trelis','trelis-crypto-payments'), true);
+			}
+			return;
+		} else {
+			wc_add_notice($response->get_error_message(), 'error');
+			wc_add_notice(__('Connection error','trelis-crypto-payments'), 'error');
+			return;
+		}
 	}
 }
 

@@ -42,6 +42,10 @@ define( 'TRELIS_CRYPTO_PAYMENTS_VERSION', '1.0.0' );
 
 define('TRELIS_API_URL','https://api.trelis.com/dev-env/dev-api/');
 
+define( 'TRELIS_PLUGIN_URL', trailingslashit( plugin_dir_url( __FILE__ ) ) );
+define( 'TRELIS_PLUGIN_DIR', trailingslashit( plugin_dir_path( __FILE__ ) ) );
+define( 'TRELIS_TESTING', false );
+
 
 /**
  * The code that runs during plugin activation.

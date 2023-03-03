@@ -125,12 +125,16 @@ class Trelis_Crypto_Payments {
 		 * The class responsible for defining all actions that occur in the admin area.
 		 */
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-trelis-crypto-payments-admin.php';
+		
+		
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/MeprTrelisGateway.php';
 
 		/**
 		 * The class responsible for defining all actions that occur in the public-facing
 		 * side of the site.
 		 */
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'public/class-trelis-crypto-payments-public.php';
+		
 
 		$this->loader = new Trelis_Crypto_Payments_Loader();
 
@@ -172,7 +176,11 @@ class Trelis_Crypto_Payments {
 		$this->loader->add_action( 'plugins_loaded', $plugin_admin, 'trelis_init_gateway_class');
 		$this->loader->add_filter( 'woocommerce_add_to_cart_validation',  $plugin_admin, 'trelis_validate_add_to_cart',10,2);
 		$this->loader->add_filter( 'woocommerce_available_payment_gateways', $plugin_admin, 'check_if_subscription_is_day_or_week' );
+		$this->loader->add_filter('mepr-gateway-paths', $plugin_admin,  'mepr_gateway_path');
+
 	}
+
+	
 
 	/**
 	 * Register all of the hooks related to the public-facing functionality

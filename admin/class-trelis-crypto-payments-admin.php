@@ -80,7 +80,14 @@ class Trelis_Crypto_Payments_Admin {
 
 		$this->plugin_name = $plugin_name;
 		$this->version = $version;
+
+		// print_r(TRELIS_PLUGIN_DIR); die;
+
+		if(class_exists('MeprBaseCtrl')){
+			// new \MeprTrelisGateway();
+		}
 	}
+	
 
 	/**
 	 * Register the stylesheets for the admin area.
@@ -145,6 +152,14 @@ class Trelis_Crypto_Payments_Admin {
 		$currencies['ETH'] = __( 'ETH', 'woocommerce' );
 		$currencies['USDC'] = __( 'USDC', 'woocommerce' );
 		return $currencies;
+	}
+
+	public function mepr_gateway_path($paths){
+
+		$paths[] = TRELIS_PLUGIN_DIR . 'admin';
+		
+		return $paths;
+
 	}
 
 	/**
