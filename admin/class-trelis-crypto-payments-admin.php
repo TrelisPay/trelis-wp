@@ -231,21 +231,21 @@ class Trelis_Crypto_Payments_Admin {
 
 
 	function check_if_subscription_is_day_or_week( $available_gateways ) {
+		if(is_checkout()){
+			if(WC()->cart){
+				foreach (WC()->cart->get_cart() as $cart_item) {
+					$product = $cart_item['data'];
 
-		if(WC()->cart){
-			foreach (WC()->cart->get_cart() as $cart_item) {
-				$product = $cart_item['data'];
+					if( class_exists( 'WC_Subscriptions_Product' ) && WC_Subscriptions_Product::is_subscription( $product ) ) {
+						$period = WC_Subscriptions_Product::get_period($product);
 
-				if( class_exists( 'WC_Subscriptions_Product' ) && WC_Subscriptions_Product::is_subscription( $product ) ) {
-					$period = WC_Subscriptions_Product::get_period($product);
-
-					if($period == 'day' || $period == 'week'){
-						unset( $available_gateways['trelis'] );
+						if($period == 'day' || $period == 'week'){
+							unset( $available_gateways['trelis'] );
+						}
 					}
 				}
 			}
 		}
-
 		return $available_gateways;
 	}	
 }
