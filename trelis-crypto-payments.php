@@ -13,7 +13,7 @@
  * @package           Trelis_Crypto_Payments
  *
  * @wordpress-plugin
- * Plugin Name:       Trelis Crypto Payments
+ * Plugin Name:       Trelis Crypto Payments Jalpesh
  * Plugin URI:        https://docs.trelis.com/products/woocommerce-plugin
  * Description:       Accept USDC or Ether payments directly to your wallet. Your customers pay by connecting any Ethereum wallet. No Trelis fees!
  * Version:           1.0.20
