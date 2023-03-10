@@ -220,7 +220,7 @@ class WC_Trelis_Gateway extends WC_Payment_Gateway {
 			} 
 
 			$api_args = array (
-				// 'subscriptionPrice' => $subscription->get_total(),
+				'subscriptionPrice' => $subscription->get_data()['total'],
 				'frequency'         => $subscription_type,
 				'subscriptionName'  => $subscription_name,
 				'fiatCurrency'      => $this->trelis_get_currency(),
