@@ -247,9 +247,15 @@ class WC_Trelis_Gateway extends WC_Payment_Gateway {
 			
 			$apiUrl = TRELIS_API_URL.'create-subscription-link?apiKey=' . $this->apiKey . '&apiSecret=' . $this->apiSecret;
 			$response = wp_remote_post($apiUrl, $args);
+
+			$body = json_decode($response['body'], true);
+			$str = explode("/", $body["data"]["subscriptionLink"]);
+
+			$linkId = $str[4];
+			update_post_meta( $order->get_id(), '_trelis_payment_link_id', $linkId );
+
 			$this->custom_logs('subscription api response',$response);
 			if (!is_wp_error($response)) {
-				$body = json_decode($response['body'], true);
 				
 				if ($body["data"]["message"] == 'Successfully created subscription link') {
 
@@ -318,6 +324,10 @@ class WC_Trelis_Gateway extends WC_Payment_Gateway {
 						$str = explode("/", $body["data"]["productLink"]);
 						$paymentID = $str[count($str)-1];
 						$order->set_transaction_id($paymentID);
+
+						$linkId = $str[4];
+						update_post_meta( $order->get_id(), '_trelis_payment_link_id', $linkId );
+
 						$order->save();
 	
 						return array(
@@ -400,6 +410,7 @@ class WC_Trelis_Gateway extends WC_Payment_Gateway {
 			if (!is_wp_error($response)) {
 				$body = json_decode($response['body'], true);
 				update_post_meta( $subscriptionId, 'trelis_payment_method', 0 );
+				$order->add_order_note(__('Subscription Cancelled','trelis-crypto-payments'), true);
 				return array(
 					'result' => 'Successfully cancel subscription'
 				);
