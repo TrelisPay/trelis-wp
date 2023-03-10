@@ -80,53 +80,62 @@ class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
 	*/
 	public function trelis_payment_confirmation_callback()
 	{
-		global $woocommerce;
 		$trelis = WC()->payment_gateways->payment_gateways()['trelis'];
 		$json = file_get_contents('php://input');
-		// $json = '{"merchantProductKey":"aab9180b-d7be-411d-b40a-b2863604f7f9","customerWalletId":"0x410129Ed1901Da941BF473315d8c1dDe4fEcC979","paidAmount":0.0006,"requiredPaymentAmount":0.0006,"paidCurrencyType":"ETH","isSuccessful":true,"txHash":"0x9f54dcf1bf31e98eab6cfd00918d66dde837570479dba6782defa56c565b2015","chainId":5,"overPayment":0,"underPayment":0,"paymentUniqueKey":"ecde60d7-4d1b-4a77-b4ca-3607112cbdef","event":"subscription.create.success"}';
 
+		$expected_signature = hash_hmac('sha256', $json,  $trelis->get_option('webhook_secret'));
+		
 		$headers = array('Content-Type: text/html; charset=UTF-8');
 		wp_mail( 'jalpesh@yopmail.com', 'Trelis payment webhook response', $json, $headers );
 		$this->custom_logs_rest('payment webhook response',$json);
 
-		$expected_signature = hash_hmac('sha256', $json,  $trelis->get_option('webhook_secret'));
 		if ( $expected_signature != $_SERVER["HTTP_SIGNATURE"])
 			return __('Failed','trelis-crypto-payments');
 
 		$data = json_decode($json);
 
+		if($data->mechantProductKey){
+			$meta_value = $data->mechantProductKey;
+		}else {
+			$meta_value = $data->subscriptionLink;
+		}
+
 		$orders = get_posts( array(
 			'post_type' => 'shop_order',
 			'posts_per_page' => -1,
 			'post_status' => 'any',
-			'meta_key'   => '_transaction_id',
-			'meta_value' =>$data->mechantProductKey,
+			'meta_key'   => '_trelis_payment_link_id',
+			'meta_value' => $meta_value,
 		));
+
 		if (empty($orders))
-			return __('Failed','trelis-crypto-payments');
+			return __('Order not found','trelis-crypto-payments');
+		
 
 		$order_id = $orders[0]->ID;
 		$order = wc_get_order($order_id);
 		$subscription = wcs_get_subscriptions_for_order( $order_id );
-		$subscription = reset( $subscription );
-		$subscriptionId   = $subscription->get_id();
-
+		if($subscription){
+			$subscription = reset( $subscription );
+			$subscriptionId  = $subscription->get_id();	
+		}
+		
 		if(strpos($data->event, 'subscription') !== false) {
-
+			
 			if($data->event === 'subscription.charge.failed' || $data->event === "charge.failed") {
 				$order->add_order_note(__('Trelis Payment Failed! Expected amount ','trelis-crypto-payments') . $data->requiredPaymentAmount . __(', attempted ','trelis-crypto-payments') . $data->paidAmount, true);
 				$order->save();
 				return __('Failed','trelis-crypto-payments');
 			}
-
+			
 			if ($data->event == "subscription.create.failed") {
 				$order->add_order_note(__('Subscription not created','trelis-crypto-payments'), true);
 				return __('Subscription not created','trelis-crypto-payments');
 			}
-
+			
 			if ($data->event == "subscription.create.success") {
-				$order->add_order_note(__('Subscription created!','trelis-crypto-payments'), true);
-				return __('Pending','trelis-crypto-payments');
+				$order->add_order_note(__('Subscription created!','trelis-crypto-payments'), false);
+				return __('Subscription created','trelis-crypto-payments');
 			}
 
 			if($data->event == "subscription.charge.success") {
@@ -161,21 +170,22 @@ class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
 
 		} else {
 			
+			
 			if ($order->get_status() == 'processing' || $order->get_status() == 'complete'){
 				return __('Already processed','trelis-crypto-payments');
 			}
-
+			
 			if ($data->event === "submission.failed" || $data->event === "charge.failed") {
 				$order->add_order_note(__('Trelis Payment Failed! Expected amount ','trelis-crypto-payments') . $data->requiredPaymentAmount . __(', attempted ','trelis-crypto-payments') . $data->paidAmount, true);
 				$order->save();
 				return __('Failed','trelis-crypto-payments');
 			}
-
+			
 			if ($data->event == "charge.failed") {
 				$order->add_order_note(__('Payment not complete','trelis-crypto-payments'), true);
 				return __('Pending','trelis-crypto-payments');
 			}
-
+			
 			if ($data->event == "charge.success") {
 				$order->add_order_note(__('Payment complete!','trelis-crypto-payments'), true);
 				$order->payment_complete();
@@ -238,5 +248,3 @@ class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
 		} */
 	}
 }
-
-
