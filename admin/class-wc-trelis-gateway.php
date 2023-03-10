@@ -617,5 +617,3 @@ class WC_Trelis_Gateway extends WC_Payment_Gateway {
 		}
 	}
 }
-
-
