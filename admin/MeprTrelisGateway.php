@@ -1,9 +1,13 @@
 <?php
 
 	class MeprTrelisGateway extends \MeprBaseRealGateway {
+
+		/** This will be where the gateway api will interacted from */
+		public $trelis_api;
         
         /** Used in the view to identify the gateway */
 		public function __construct() {
+
 			$this -> name = 'Trelis';
 			$this -> icon = TRELIS_PLUGIN_URL . 'assets/icons/trelis.png';
 			$this -> desc = __( 'Pay with Wallet', 'memberpress' );
@@ -21,12 +25,36 @@
 				'resume-subscriptions',
 				'subscription-trial-payment'
 			);
+
+			// Setup the notification actions for this gateway
+			$this->notifiers = array(
+				'treliswhk' => 'webhook_listener',
+				'return' => 'return_callback',
+			  );
+
+			add_filter('mepr_options_helper_payment_methods', array($this, 'exclude_gateways'), 10, 2);
+			
 		}
 		
+		public function exclude_gateways($pm_ids, $field_name){
+			global $post;
+			$product = new MeprProduct($post->ID);
+			$payment_gateways = [];
+			if(!(!$product->trial) && ( in_array($product->period_type, ['months', 'years']) && $product->period == 1)){
+				foreach ($pm_ids as $key => $pm_id) {
+					if($pm_id !== $this->id){
+						$payment_gateways[] = $pm_id;
+					}
+				}
+				return $payment_gateways;
+			}
+			return $pm_ids;
+		}
 		
 		public function load($settings) {
 			$this->settings = (object)$settings;
 			$this->set_defaults();
+			$this->trelis_api = new MeprTrelisAPI($this->settings);
 		}
 		
 		protected function set_defaults() {
@@ -47,6 +75,9 @@
 				  'api_key' => '',
 				  'api_secret' => '',
 				  'webhook_secret' => '',
+				  'is_prime'=> '',
+				  'is_gasless' => '',
+				  'webhook_url' => __(home_url()."/mepr/notify/".$this->id."/treliswhk"),
 				  'signature' => '',
 				  'sandbox' => false,
 				  'debug' => false
@@ -77,6 +108,10 @@
 			  $this->settings->api_key = trim($this->settings->api_key);
 			  $this->settings->api_secret = $this->settings->api_secret;
 			  $this->settings->webhook_secret = $this->settings->webhook_secret;
+			  $this->settings->webhook_url = $this->settings->webhook_url;
+			  $this->settings->is_prime = ($this->settings->is_prime ? $this->settings->is_prime : false);
+			  $this->settings->is_gasless = ($this->settings->is_gasless ? $this->settings->is_gasless : false);
+
 		}
 		
 		
@@ -86,7 +121,9 @@
 			$api_key = trim($this->settings->api_key);
 			$api_secret = trim($this->settings->api_secret);
 			$webhook_secret    = trim($this->settings->webhook_secret);
-
+			$webhook_url = trim($this->settings->webhook_url);
+			$is_prime = $this->settings->is_prime;
+			$is_gasless = $this->settings->is_gasless;
 			// $sandbox      = ($this->settings->sandbox == 'on' or $this->settings->sandbox == true);
 			// $debug        = ($this->settings->debug == 'on' or $this->settings->debug == true); ?>
             
@@ -104,6 +141,22 @@
                         <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em><?php _e('Webhook Secret:', 'memberpress'); ?></em></td>
                         <td><input type="password" class="mepr-auto-trim" name="<?php echo $mepr_options->integrations_str; ?>[<?php echo $this->id;?>][webhook_secret]" value="<?php echo $webhook_secret; ?>" /></td>
                     </tr>
+					<tr class="advanced_mode_row-<?php echo $this->id;?>">
+						<th scope="row"><label><?php _e('Trelis Webhook URL:', 'memberpress'); ?></label></th>
+						<td><?php MeprAppHelper::clipboard_input($this->notify_url('treliswhk')); ?></td>
+							<!-- <input type="text" class="mepr-clipboard-input " onfocus="this.select();" onclick="this.select();" readonly="true" name="<?php //echo $mepr_options->integrations_str; ?>[<?php// echo $this->id;?>][webhook_url]" value="<?php //echo $webhook_url; ?>">
+						<span class="mepr-clipboard ">
+							<i class="mp-clipboardjs mp-icon mp-icon-clipboard mp-16 tooltipstered" data-clipboard-text="<?php //echo $webhook_url; ?>"></i>
+						</span> -->
+					</tr>
+					<tr class="advanced_mode_row-<?php echo $this->id;?>">
+						<th scope="row"><label for="<?php echo $is_prime; ?>"><?php _e('Trelis Prime', 'memberpress'); ?></label></th>
+						<td><input type="checkbox" name="<?php echo $mepr_options->integrations_str; ?>[<?php echo $this->id;?>][is_prime]" <?php echo ($this->settings->is_prime ? "checked" : ''); ?> /></td>
+					</tr>
+					<tr class="advanced_mode_row-<?php echo $this->id;?>">
+						<th scope="row"><label for="<?php echo $is_gasless; ?>"><?php _e('Gasless Payments', 'memberpress'); ?></label></th>
+						<td><input type="checkbox" name="<?php echo $mepr_options->integrations_str; ?>[<?php echo $this->id;?>][is_gasless]" <?php echo ($this->settings->is_gasless ? "checked" : ''); ?> /></td>
+					</tr>
                 </table>
             </div>
         <?php }
@@ -132,106 +185,329 @@
 			  return (isset($this->settings->test_mode) && $this->settings->test_mode);
 		}
 
-        public function process_payment($txn) {
+			//create recurring subscription payment
+			public function process_create_subscription($txn) {
+				
+				if (isset($txn) and $txn instanceof MeprTransaction) {
+					$usr = $txn->user();
+					$prd = $txn->product();
+				} else {
+					throw new MeprGatewayException(__('Payment transaction intialization was unsuccessful, please try again.', 'memberpress'));
+				}
+
+				$subscription = new MeprProduct($txn->product_id);
+
+				$subscription_type = "MONTHLY";
+				if($subscription_type == "months") {
+					$subscription_type = "MONTHLY";
+				} 
+				if( $subscription_type == "years" ) {
+					$subscription_type = "YEARLY";
+				} 
+				
+				$args = MeprHooks::apply_filters('mepr_trelis_payment_args', array(
+					'subscriptionPrice' => $subscription->price,
+					'frequency'         => $subscription_type,
+					'subscriptionName'  => sanitize_title($subscription->post_title),
+					'fiatCurrency'      => $this->trelis_api->get_mepr_currency(),
+					'subscriptionType'  => "automatic",
+					"redirectLink" => $this->notify_url('return'). '?txn=' . $txn->trans_num
+				), $txn);
+
+				
+				// Initialize a new payment here
+				$response = (object) $this->trelis_api->send_request("create-subscription-link", $args);
+				$str = explode("/", $response->data['subscriptionLink']);
+				$linkId = $str[4];
+				$this->update_mepr_transaction_meta( $txn->id, '_trelis_payment_link_id', $linkId);
+
+				return MeprUtils::wp_redirect("{$response->data['subscriptionLink']}");
+			}
+			
+
+		//create One time payment
+        public function process_payment($txn, $trial = false) {
+			if (isset($txn) and $txn instanceof MeprTransaction) {
+				
+				$usr = $txn->user();
+				$prd = $txn->product();
+				
+			} else {
+				throw new MeprGatewayException(__('Payment transaction intialization was unsuccessful, please try again.', 'memberpress'));
+			}
+			$product = new MeprProduct($txn->product_id);
 		
+    		$productName = sanitize_title($product->post_title);
+			$productPrice = $product->price;
+		
+			// Initialize the charge on Trelis's servers - this will charge the user's card
+			$args = MeprHooks::apply_filters('mepr_trelis_payment_args', array(
+				"productName" => $productName,
+				"productPrice"  => $productPrice,
+				"token" => $this->trelis_api->get_mepr_token(),
+				"redirectLink" => $this->notify_url('return'). '?txn=' . $txn->trans_num,
+				"fiatCurrency" => $this->trelis_api->get_mepr_currency(),
+				"isPrime" => $this->settings->is_prime,
+				"isGasless" => $this->settings->is_gasless
+			), $txn);
+
+			
+			// Initialize a new payment here
+			$response = (object) $this->trelis_api->send_request("create-dynamic-link", $args);
+			
+			$str = explode("/", $response->data['productLink']);
+			$linkId = $str[4];
+			$this->update_mepr_transaction_meta( $txn->id, '_trelis_payment_link_id', $linkId);
+
+			return MeprUtils::wp_redirect("{$response->data['productLink']}");
+		}
+
+		/** 
+		 * This method should be used by the class to verify a successful payment by the given
+		 * the gateway. This method should also be used by any IPN requests or Silent Posts.
+		 */
+		public function return_callback()
+		{
+			$mepr_options = MeprOptions::fetch();
+			$obj = MeprTransaction::get_one_by_trans_num($_GET['txn']);
+			if (is_object($obj) and isset($obj->id)) {
+
+				// Redirect to thank you page
+				$product = new MeprProduct($obj->product_id);
+				$sanitized_title = sanitize_title($product->post_title);
+
+				$query_params = array(
+					'membership' => $sanitized_title,
+					'trans_num' => $obj->trans_num,
+					'membership_id' => $product->ID
+				);
+
+				MeprUtils::wp_redirect($mepr_options->thankyou_page_url(build_query($query_params)));
+			}
+		}
+
+		/** Trelis SPECIFIC METHODS **/
+		public function webhook_listener()
+		{
+			// retrieve the request's body
+			$json = file_get_contents('php://input');
+			$request =  (object)json_decode($json, true);
+
+			//debug mail
+			$headers = array('Content-Type: text/html; charset=UTF-8');
+			wp_mail( 'jalpesh@yopmail.com', 'MEPR Process Payment webhook',print_r($json, true), $headers );
+			// debug mail end
+
+			$merchantKey = '';
+			if($request->merchantProductKey){
+				$merchantKey = $request->merchantProductKey;
+			} else {
+				$merchantKey = $request->subscriptionLink;
+			} 
+
+			 if($transaction_meta = $this->get_mepr_transaction_id($merchantKey)){
+				
+				$transaction_id = $transaction_meta[0]->transaction_id;
+				$txn = new MeprTransaction($transaction_id);
+				
+				if ($request->event == 'submission.success') {
+					$txn->status = MeprTransaction::$confirmed_str;
+					$txn->store();
+
+				} else if ($request->event == 'charge.success') {
+					$txn->status = MeprTransaction::$complete_str ;
+					$txn->store();
+	
+				} else if ($request->event == 'charge.failed') {
+					$txn->status = MeprTransaction::$failed_str;
+					$txn->store();
+
+				} else if ($request->event == 'subscription.create.success') {
+					$txn->status = MeprTransaction::$confirmed_str;
+					$txn->store();
+
+				} else if ($request->event == 'subscription.create.failed') {
+					$txn->status = MeprTransaction::$pending_str;
+					$txn->store();
+	
+				}  else if ($request->event == 'subscription.charge.failed') {
+					$txn->status = MeprTransaction::$failed_str;
+					$txn->store();
+	
+				} else if ($request->event == 'subscription.charge.success') {
+					$txn->status = MeprTransaction::$complete_str ;
+					$txn->store();
+				
+				} else if ($request->event == 'subscription.cancellation.success') {
+					$txn->status = MeprTransaction::$failed_str ;
+					$txn->store();
+				} else if($request->event == 'subscription.cancellation.failed') {
+					$txn->status = MeprTransaction::$failed_str ;
+					$txn->store();
+				} 
+			 }else {
+				throw new MeprGatewayException(__('Transaction id is not available in transaction_meta.', 'memberpress'));
+			 }
 		}
 		
 		public function process_refund($txn) {
-		
+			var_dump("process_refund"); die;
 		}
 		public function record_payment() {
-		
+			var_dump("record_payment"); die;
 		}
 		public function record_refund() {
-		
+			var_dump("record_refund"); die;
 		}
-		public function record_subscription_payment() {
-		
+		public function record_subscription_payment() {		
+			var_dump("record_subscription_payment"); die;	
 		}
+
 		public function record_payment_failure(  ) {
-		
+			var_dump("record_payment_failure"); die;
 		}
 		
 		public function process_trial_payment( $transaction ) {
-		
+			var_dump("process_trial_payment"); die;
 		}
 		
 		public function record_trial_payment( $transaction ) {
-		
-		
-		}
-		
-		public function process_create_subscription($transaction) {
-		
+			var_dump("record_trial_payment"); die;
 		}
 		
 		public function  record_create_subscription() {
-		
+			var_dump("record_create_subscription"); die;
 		}
 		
 		public function process_update_subscription($subscription_id) {
-		
+			var_dump("process_update_subscription"); die;
 		}
 		
 		public function record_update_subscription() {
-		
+			var_dump("record_update_subscription"); die;
 		}
 		
 		public function process_suspend_subscription($subscription_id) {
-		
+			var_dump("process_suspend_subscription"); die;
 		}
 		
 		public function record_suspend_subscription(  ) {
-		
+			var_dump("record_suspend_subscription"); die;
 		}
 		
 		public function process_resume_subscription($subscription_id) {
-		
+			var_dump("process_resume_subscription"); die;
 		}
 		
 		public function record_resume_subscription() {
-		
+			var_dump("record_resume_subscription"); die;
 		}
 		
 		public function process_cancel_subscription($subscription_id) {
-		
+			var_dump("process_cancel_subscription"); die;
 		}
 		
 		public function  record_cancel_subscription(  ) {
-		
+			var_dump("record_cancel_subscription"); die;
 		}
 		
 		public function process_signup_form($txn) {
-		
+			// var_dump("process_signup_form"); die;
 		}
 		
 		public function display_payment_page($txn) {
-		
+			// var_dump("display_payment_page"); die;
 		}
         public function  enqueue_payment_form_scripts() {
-		
+			// var_dump("enqueue_payment_form_scripts"); die;
 		}
 		
-		public function  display_payment_form($amount, $user, $product_id, $transaction_id) {
-		
+		 /** 
+		 * This gets called on the_content and just renders the payment form
+		 */
+		public function display_payment_form($amount, $user, $product_id, $txn_id)
+		{
+			$mepr_options = MeprOptions::fetch();
+			$prd = new MeprProduct($product_id);
+			$coupon = false;
+
+			$txn = new MeprTransaction($txn_id);
+
+			//Artifically set the price of the $prd in case a coupon was used
+			if ($prd->price != $amount) {
+			$coupon = true;
+			$prd->price = $amount;
+			}
+
+			$invoice = MeprTransactionsHelper::get_invoice($txn);
+			echo $invoice;
+		?>
+			<div class="mp_wrapper mp_payment_form_wrapper">
+			<div class="mp_wrapper mp_payment_form_wrapper">
+				<?php MeprView::render('/shared/errors', get_defined_vars()); ?>
+				<form action="" method="post" id="mepr_trelis_payment_form" class="mepr-checkout-form mepr-form mepr-card-form" novalidate>
+				<input type="hidden" name="mepr_process_payment_form" value="Y" />
+				<input type="hidden" name="mepr_transaction_id" value="<?php echo $txn->id; ?>" />
+
+				<?php MeprHooks::do_action('mepr-trelis-payment-form', $txn); ?>
+				<div class="mepr_spacer">&nbsp;</div>
+
+				<input type="submit" class="mepr-submit" value="<?php _e('Pay Now', 'memberpress'); ?>" />
+				<img src="<?php echo admin_url('images/loading.gif'); ?>" style="display: none;" class="mepr-loading-gif" />
+				<?php MeprView::render('/shared/has_errors', get_defined_vars()); ?>
+				</form>
+			</div>
+			</div>
+		<?php
 		}
+
 		
 		public function validate_payment_form($errors) {
-		
+			// var_dump("validate_payment_form"); die;
 		}
 		
 		public function display_update_account_form($subscription_id, $errors=array(), $message="") {
-			
+			var_dump("display_update_account_form"); die;
 		}
 		
 		public function validate_update_account_form($errors=array()) {
-			
+			var_dump("validate_update_account_form"); die;
 		}
 		
 		public function process_update_account_form($subscription_id) {
-			
+			var_dump("process_update_account_form"); die;
 		}
         public function force_ssl(  ) {
-			
+			// var_dump("force_ssl"); die;
+		}
+
+		
+
+		public function update_mepr_transaction_meta($txn_id, $meta_key, $meta_value){
+			global $wpdb;
+
+			$table_name =  $wpdb->prefix . 'mepr_transaction_meta';
+			$data = array( 
+				'transaction_id' => $txn_id,
+				'meta_key' => $meta_key,
+				'meta_value' => $meta_value
+			);
+
+			$result = $wpdb->update($table_name, $data , array('transaction_id' => $txn_id));
+
+			//If nothing found to update, it will try and create the record.
+			if ($result === FALSE || $result < 1) {
+				$wpdb->insert($table_name, $data);
+			}
+		}
+
+		public function get_mepr_transaction_meta($txn_id, $meta_key){
+			global $wpdb;
+			return $wpdb->get_results("SELECT * FROM  {$wpdb->prefix}mepr_transaction_meta WHERE transaction_id = {$txn_id} and meta_key= '{$meta_key}'");
+		}
+
+		public function get_mepr_transaction_id($meta_value){
+			global $wpdb;
+			return $wpdb->get_results("SELECT * FROM  {$wpdb->prefix}mepr_transaction_meta WHERE meta_value = '{$meta_value}'");
 		}
 }

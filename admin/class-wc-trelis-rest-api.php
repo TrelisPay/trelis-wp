@@ -248,3 +248,5 @@ class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
 		} */
 	}
 }
+
+
