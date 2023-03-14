@@ -100,6 +100,12 @@ class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
 			$meta_value = $data->subscriptionLink;
 		}
 
+		if($data->from){
+			$customerWalletId = $data->from;
+		}else{
+			$customerWalletId = $data->customer;
+		}
+
 		$orders = get_posts( array(
 			'post_type' => 'shop_order',
 			'posts_per_page' => -1,
@@ -122,6 +128,8 @@ class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
 		
 		if(strpos($data->event, 'subscription') !== false) {
 			
+			update_post_meta( $subscriptionId, 'customerWalletId', $customerWalletId );
+			
 			if($data->event === 'subscription.charge.failed' || $data->event === "charge.failed") {
 				$order->add_order_note(__('Trelis Payment Failed! Expected amount ','trelis-crypto-payments') . $data->requiredPaymentAmount . __(', attempted ','trelis-crypto-payments') . $data->paidAmount, true);
 				$order->save();
@@ -134,14 +142,12 @@ class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
 			}
 			
 			if ($data->event == "subscription.create.success") {
+				
 				$order->add_order_note(__('Subscription created!','trelis-crypto-payments'), false);
 				return __('Subscription created','trelis-crypto-payments');
 			}
 
 			if($data->event == "subscription.charge.success") {
-				
-				$customerWalletId = $data->from;
-				update_post_meta( $subscriptionId, 'customerWalletId', $customerWalletId );
 				
 				$order->add_order_note(__('Payment complete!','trelis-crypto-payments'), true);
 				$order->payment_complete();
@@ -157,13 +163,12 @@ class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
 			}
 
 			if($data->event == "subscription.cancellation.success") { 
-				$customerWalletId = $data->from;
 				update_post_meta( $subscriptionId, 'trelis_payment_method', 0 );
 				$order->add_order_note(__('Subscription cancel successfully !','trelis-crypto-payments'), true);
+				// $order->add_order_note(__('Subscription Cancelled','trelis-crypto-payments'), true);
 			}
 
 			if($data->event == "subscription.cancellation.failed") { 
-				$customerWalletId = $data->from;
 				update_post_meta( $subscriptionId, 'trelis_payment_method', 0 );
 				$order->add_order_note(__('Subscription cancelation failed !','trelis-crypto-payments'), true);
 			}

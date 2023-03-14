@@ -33,9 +33,9 @@
 			  );
 
 			add_filter('mepr_options_helper_payment_methods', array($this, 'exclude_gateways'), 10, 2);
-			
+
 		}
-		
+
 		public function exclude_gateways($pm_ids, $field_name){
 			global $post;
 			$product = new MeprProduct($post->ID);
@@ -70,7 +70,7 @@
 				  'use_label' => true,
 				  'icon' => TRELIS_PLUGIN_URL . 'assets/icons/trelis.png',
 				  'use_icon' => true,
-				  'desc' => __('Pay via your Trelis account', 'memberpress'),
+				  'desc' => __('Pay with crypto', 'memberpress'),
 				  'use_desc' => true,
 				  'api_key' => '',
 				  'api_secret' => '',
@@ -294,8 +294,8 @@
 			$request =  (object)json_decode($json, true);
 
 			//debug mail
-			$headers = array('Content-Type: text/html; charset=UTF-8');
-			wp_mail( 'jalpesh@yopmail.com', 'MEPR Process Payment webhook',print_r($json, true), $headers );
+			// $headers = array('Content-Type: text/html; charset=UTF-8');
+			// wp_mail( 'jalpesh@yopmail.com', 'MEPR Process Payment webhook',print_r($json, true), $headers );
 			// debug mail end
 
 			$merchantKey = '';
@@ -305,45 +305,91 @@
 				$merchantKey = $request->subscriptionLink;
 			} 
 
-			 if($transaction_meta = $this->get_mepr_transaction_id($merchantKey)){
+			if($request->from){
+				$customerWalletId = $request->from;
+			}else{
+				$customerWalletId = $request->customer;
+			}
+
+			if($transaction_meta = $this->get_mepr_transaction_id($merchantKey)){
 				
 				$transaction_id = $transaction_meta[0]->transaction_id;
 				$txn = new MeprTransaction($transaction_id);
-				
+				$sub = new MeprSubscription($txn->subscription_id);
+
 				if ($request->event == 'submission.success') {
-					$txn->status = MeprTransaction::$confirmed_str;
-					$txn->store();
-
-				} else if ($request->event == 'charge.success') {
-					$txn->status = MeprTransaction::$complete_str ;
-					$txn->store();
-	
-				} else if ($request->event == 'charge.failed') {
-					$txn->status = MeprTransaction::$failed_str;
-					$txn->store();
-
-				} else if ($request->event == 'subscription.create.success') {
-					$txn->status = MeprTransaction::$confirmed_str;
-					$txn->store();
-
-				} else if ($request->event == 'subscription.create.failed') {
 					$txn->status = MeprTransaction::$pending_str;
 					$txn->store();
+					$sub->status = MeprSubscription::$pending_str;
+					$sub->store();
+
+				} else if ($request->event == 'charge.success') {
+					$txn->status = MeprTransaction::$confirmed_str;
+					$txn->store();
+					$sub->status = MeprSubscription::$active_str ;
+					$sub->store();
+	
+				} else if ($request->event == 'charge.failed') {
+					$txn->status = MeprTransaction::$pending_str;
+					$txn->store();
+					$sub->status = MeprSubscription::$pending_str;
+					$sub->store();
+
+				} else if ($request->event == 'subscription.create.success') {
+					$this->update_mepr_subscription_meta( $txn->subscription_id, '__trelis_customer_wallet_id', $customerWalletId);
+
+					$txn->status = MeprTransaction::$confirmed_str;
+					$txn->store();
+
+					$sub->status = MeprSubscription::$pending_str;
+					$sub->store();
+
+				} else if ($request->event == 'subscription.create.failed') {
+					$this->update_mepr_subscription_meta( $txn->subscription_id, '__trelis_customer_wallet_id', $customerWalletId);
+
+					$txn->status = MeprTransaction::$pending_str;
+					$txn->store();
+
+					$sub->status = MeprSubscription::$pending_str;
+					$sub->store();
 	
 				}  else if ($request->event == 'subscription.charge.failed') {
+					$this->update_mepr_subscription_meta( $txn->subscription_id, '__trelis_customer_wallet_id', $customerWalletId);
+
 					$txn->status = MeprTransaction::$failed_str;
 					$txn->store();
+
+					$sub->status = MeprSubscription::$pending_str;
+					$sub->store();
 	
 				} else if ($request->event == 'subscription.charge.success') {
-					$txn->status = MeprTransaction::$complete_str ;
+					
+					$this->update_mepr_subscription_meta( $txn->subscription_id, '__trelis_customer_wallet_id', $customerWalletId);
+					
+					$txn->status = MeprTransaction::$confirmed_str;
 					$txn->store();
+
+					$sub->status = MeprSubscription::$active_str;
+					$sub->store();
 				
 				} else if ($request->event == 'subscription.cancellation.success') {
-					$txn->status = MeprTransaction::$failed_str ;
-					$txn->store();
+					$this->update_mepr_subscription_meta( $txn->subscription_id, '__trelis_customer_wallet_id', $customerWalletId);
+
+					// $txn->status = MeprTransaction::$confirmed_str;
+					// $txn->store();
+
+					$sub->status = MeprSubscription::$cancelled_str;
+					$sub->store();
+
 				} else if($request->event == 'subscription.cancellation.failed') {
-					$txn->status = MeprTransaction::$failed_str ;
-					$txn->store();
+					$this->update_mepr_subscription_meta( $txn->subscription_id, '__trelis_customer_wallet_id', $customerWalletId);
+
+					// $txn->status = MeprTransaction::$confirmed_str;
+					// $txn->store();
+
+					// $sub->status = MeprSubscription::$pending_str ;
+					// $sub->store();
+
 				} 
 			 }else {
 				throw new MeprGatewayException(__('Transaction id is not available in transaction_meta.', 'memberpress'));
@@ -351,66 +397,110 @@
 		}
 		
 		public function process_refund($txn) {
-			var_dump("process_refund"); die;
+			// var_dump("process_refund"); die;
 		}
 		public function record_payment() {
-			var_dump("record_payment"); die;
+			// var_dump("record_payment"); die;
 		}
 		public function record_refund() {
-			var_dump("record_refund"); die;
+			// var_dump("record_refund"); die;
 		}
 		public function record_subscription_payment() {		
-			var_dump("record_subscription_payment"); die;	
+			// var_dump("record_subscription_payment"); die;	
 		}
 
-		public function record_payment_failure(  ) {
-			var_dump("record_payment_failure"); die;
+		public function record_payment_failure() {
+			// var_dump("record_payment_failure"); die;
 		}
 		
 		public function process_trial_payment( $transaction ) {
-			var_dump("process_trial_payment"); die;
+			// var_dump("process_trial_payment"); die;
 		}
 		
 		public function record_trial_payment( $transaction ) {
-			var_dump("record_trial_payment"); die;
+			// var_dump("record_trial_payment"); die;
 		}
 		
 		public function  record_create_subscription() {
-			var_dump("record_create_subscription"); die;
+			// var_dump("record_create_subscription"); die;
 		}
 		
 		public function process_update_subscription($subscription_id) {
-			var_dump("process_update_subscription"); die;
+			// var_dump("process_update_subscription"); die;
 		}
 		
 		public function record_update_subscription() {
-			var_dump("record_update_subscription"); die;
+			// var_dump("record_update_subscription"); die;
 		}
 		
 		public function process_suspend_subscription($subscription_id) {
-			var_dump("process_suspend_subscription"); die;
+			// var_dump("process_suspend_subscription"); die;
 		}
 		
 		public function record_suspend_subscription(  ) {
-			var_dump("record_suspend_subscription"); die;
+			// var_dump("record_suspend_subscription"); die;
 		}
 		
 		public function process_resume_subscription($subscription_id) {
-			var_dump("process_resume_subscription"); die;
+			// var_dump("process_resume_subscription"); die;
 		}
 		
 		public function record_resume_subscription() {
-			var_dump("record_resume_subscription"); die;
+			// var_dump("record_resume_subscription"); die;
 		}
 		
-		public function process_cancel_subscription($subscription_id) {
-			var_dump("process_cancel_subscription"); die;
+		/** Used to cancel a subscription by the given gateway. This method should be used
+		 * by the class to record a successful cancellation from the gateway. This method
+		 * should also be used by any IPN requests or Silent Posts.
+		 */
+		public function process_cancel_subscription($sub_id)
+		{
+			$sub = new MeprSubscription($sub_id);
+
+			if (!isset($sub->id) || (int) $sub->id <= 0)
+			throw new MeprGatewayException(__('This subscription is invalid.', 'memberpress'));
+
+			$customer_wallet = $this->get_mepr_subscription_meta($sub->id, '__trelis_customer_wallet_id');
+
+			if($customer_wallet){
+
+				$args = MeprHooks::apply_filters('mepr_paystack_cancel_subscription_args', array(
+					'customer' => $customer_wallet[0]->meta_value,
+				), $sub);
+	
+				// Yeah ... we're cancelling here bro ... but this time we don't want to restart again
+				$this->trelis_api->send_request("cancel-subscription", $args);
+
+				if (!$sub) {
+					return false;
+				}
+
+				// Seriously ... if sub was already cancelled what are we doing here?
+				if ($sub->status == MeprSubscription::$cancelled_str) {
+					return $sub;
+				}
+
+				$sub->status = MeprSubscription::$cancelled_str;
+				$sub->store();
+
+				$sub->limit_reached_actions();
+
+				MeprUtils::send_cancelled_sub_notices($sub);
+
+				return $sub;
+
+			}else {
+				throw new MeprGatewayException(__('Customer Wallet not found.', 'memberpress'));
+			}
 		}
-		
-		public function  record_cancel_subscription(  ) {
-			var_dump("record_cancel_subscription"); die;
+
+		/** This method should be used by the class to record a successful cancellation
+		 * from the gateway. This method should also be used by any IPN requests or
+		 * Silent Posts.
+		 */
+		public function record_cancel_subscription()
+		{
 		}
-		
 		public function process_signup_form($txn) {
 			// var_dump("process_signup_form"); die;
 		}
@@ -467,21 +557,42 @@
 		}
 		
 		public function display_update_account_form($subscription_id, $errors=array(), $message="") {
-			var_dump("display_update_account_form"); die;
+			// var_dump("display_update_account_form"); die;
 		}
 		
 		public function validate_update_account_form($errors=array()) {
-			var_dump("validate_update_account_form"); die;
+			// var_dump("validate_update_account_form"); die;
 		}
 		
 		public function process_update_account_form($subscription_id) {
-			var_dump("process_update_account_form"); die;
+			// var_dump("process_update_account_form"); die;
 		}
         public function force_ssl(  ) {
 			// var_dump("force_ssl"); die;
 		}
 
-		
+		public function update_mepr_subscription_meta($subscription_id, $meta_key, $meta_value){
+			global $wpdb;
+
+			$table_name =  $wpdb->prefix . 'mepr_subscription_meta';
+			$data = array( 
+				'subscription_id' => $subscription_id,
+				'meta_key' => $meta_key,
+				'meta_value' => $meta_value
+			);
+
+			$result = $wpdb->update($table_name, $data , array('subscription_id' => $subscription_id));
+
+			//If nothing found to update, it will try and create the record.
+			if ($result === FALSE || $result < 1) {
+				$wpdb->insert($table_name, $data);
+			}
+		}
+
+		public function get_mepr_subscription_meta($subscription_id, $meta_key){
+			global $wpdb;
+			return $wpdb->get_results("SELECT * FROM  {$wpdb->prefix}mepr_subscription_meta WHERE subscription_id = {$subscription_id} and meta_key= '{$meta_key}'");
+		}
 
 		public function update_mepr_transaction_meta($txn_id, $meta_key, $meta_value){
 			global $wpdb;
@@ -499,11 +610,6 @@
 			if ($result === FALSE || $result < 1) {
 				$wpdb->insert($table_name, $data);
 			}
-		}
-
-		public function get_mepr_transaction_meta($txn_id, $meta_key){
-			global $wpdb;
-			return $wpdb->get_results("SELECT * FROM  {$wpdb->prefix}mepr_transaction_meta WHERE transaction_id = {$txn_id} and meta_key= '{$meta_key}'");
 		}
 
 		public function get_mepr_transaction_id($meta_value){

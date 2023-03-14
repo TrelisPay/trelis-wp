@@ -54,12 +54,8 @@ class MeprTrelisAPI
      * @param string $domain API request uri
      * @return object|null JSON decoded transaction object. NULL on API error.
      */
-    public function send_request(
-        $endpoint,
-        $args = array(),
-        $method = 'post',
-        $domain = TRELIS_API_URL
-    ) {
+    public function send_request( $endpoint, $args = array(), $method = 'post', $domain = TRELIS_API_URL ) {
+        
         $apiUrl = "{$domain}{$endpoint}?apiKey={$this->apiKey}&apiSecret={$this->apiSecret}";
 
         $args = MeprHooks::apply_filters('mepr_trelis_request_args', $args);
@@ -76,12 +72,13 @@ class MeprTrelisAPI
 
         $resp = wp_remote_request($apiUrl, $arg_array);
 
-        $headers = array('Content-Type: text/html; charset=UTF-8');
-		wp_mail( 'jalpesh@yopmail.com', 'record_subscription_payment',print_r($resp,true),$headers );
+        // $headers = array('Content-Type: text/html; charset=UTF-8');
+		// wp_mail( 'jalpesh@yopmail.com', 'record_subscription_payment',print_r($resp,true),$headers );
         
         if (is_wp_error($resp)) {
             throw new MeprHttpException(sprintf(__('You had an HTTP error connecting to %s', 'memberpress'), $this->plugin_name));
-        } else {
+        } 
+        else {
             if (null !== ($json_res = json_decode($resp['body'], true))) {
                 
                 if (isset($json_res['error']))
@@ -119,7 +116,7 @@ class MeprTrelisAPI
 			case 'USDC':
 				return $currency;
 			default:
-				return 'ETH';
+				return 'USDC';
 		}
 
     }

@@ -235,7 +235,7 @@ class WC_Trelis_Gateway extends WC_Payment_Gateway {
 				$schedule_trial_end = strtotime(date($subscription->schedule_trial_end));
 				$datediff = $schedule_trial_end - $schedule_start;
 				$freeTrialDays = round($datediff / (60 * 60 * 24));
-				$api_args['freeTrialsDays'] = $freeTrialDays;
+				$api_args['freeTrialDays'] = $freeTrialDays;
 			} 
 			
 			$args = array (
@@ -361,7 +361,7 @@ class WC_Trelis_Gateway extends WC_Payment_Gateway {
 	
 		switch ($currency) {
 			case 'ETH':
-				return $currency;
+				// return $currency;
 			case 'USDC':
 				return $currency;
 			default:
@@ -384,6 +384,8 @@ class WC_Trelis_Gateway extends WC_Payment_Gateway {
 	public function trelis_subscription_status_cancelled( $subscription )
 	{
 		$subscriptionId = $subscription->get_data()['id'];
+		$order = wc_get_order( $subscriptionId );
+
 		if($subscription->get_data()['status'] == 'cancelled') 
 		{
 			$customerWalletId = get_post_meta($subscriptionId,'customerWalletId',true);
@@ -397,20 +399,18 @@ class WC_Trelis_Gateway extends WC_Payment_Gateway {
 			);
 	
 			$apiUrl = TRELIS_API_URL.'cancel-subscription?apiKey=' . $this->apiKey . '&apiSecret=' . $this->apiSecret;
-			
 			$response = wp_remote_post($apiUrl, $args);
 			
 			//debug start
-			$headers = array('Content-Type: text/html; charset=UTF-8');
-			$emailBody = array($subscriptionId, $args, $response);
-			wp_mail( 'jalpesh@yopmail.com', 'Trelis cancel subscription API response', print_r($emailBody,true), $headers );
-			$this->custom_logs('run subscription for cancel subscription  api response',$emailBody);
+			// $headers = array('Content-Type: text/html; charset=UTF-8');
+			// $emailBody = array($subscriptionId, $args, $response);
+			// wp_mail( 'jalpesh@yopmail.com', 'Trelis cancel subscription API response', print_r($emailBody,true), $headers );
+			// $this->custom_logs('run subscription for cancel subscription  api response',$emailBody);
 			//debug end
 
 			if (!is_wp_error($response)) {
 				$body = json_decode($response['body'], true);
 				update_post_meta( $subscriptionId, 'trelis_payment_method', 0 );
-				$order->add_order_note(__('Subscription Cancelled','trelis-crypto-payments'), true);
 				return array(
 					'result' => 'Successfully cancel subscription'
 				);
@@ -441,11 +441,12 @@ class WC_Trelis_Gateway extends WC_Payment_Gateway {
 			);
 
 			$apiUrl = TRELIS_API_URL.'run-subscription?apiKey=' . $this->apiKey . '&apiSecret=' . $this->apiSecret;
-			
 			$response = wp_remote_post($apiUrl, $args);
+
 			$headers = array('Content-Type: text/html; charset=UTF-8');
 			wp_mail( 'jalpesh@yopmail.com', 'Trelis run subscription API status changed to Active', print_r($response,true), $headers );
 			$this->custom_logs('run subscription api response',$response);
+
 			if (!is_wp_error($response)) {
 				$body = json_decode($response['body'], true);
 				if(!empty($body))
