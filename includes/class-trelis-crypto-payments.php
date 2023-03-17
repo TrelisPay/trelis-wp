@@ -28,7 +28,8 @@
  * @author     Trelis <jalpesh.fullstack10@gmail.com>
  */
 
-class Trelis_Crypto_Payments {
+class Trelis_Crypto_Payments
+{
 
 	/**
 	 * The loader that's responsible for maintaining and registering all hooks that power
@@ -76,8 +77,9 @@ class Trelis_Crypto_Payments {
 	 *
 	 * @since    1.0.0
 	 */
-	public function __construct() {
-		if ( defined( 'TRELIS_CRYPTO_PAYMENTS_VERSION' ) ) {
+	public function __construct()
+	{
+		if (defined('TRELIS_CRYPTO_PAYMENTS_VERSION')) {
 			$this->version = TRELIS_CRYPTO_PAYMENTS_VERSION;
 		} else {
 			$this->version = '1.0.0';
@@ -107,42 +109,41 @@ class Trelis_Crypto_Payments {
 	 * @since    1.0.0
 	 * @access   private
 	 */
-	private function load_dependencies() {
+	private function load_dependencies()
+	{
 
 		/**
 		 * The class responsible for orchestrating the actions and filters of the
 		 * core plugin.
 		 */
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-trelis-crypto-payments-loader.php';
+		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/class-trelis-crypto-payments-loader.php';
 
 		/**
 		 * The class responsible for defining internationalization functionality
 		 * of the plugin.
 		 */
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-trelis-crypto-payments-i18n.php';
+		require_once plugin_dir_path(dirname(__FILE__)) . 'includes/class-trelis-crypto-payments-i18n.php';
 
 		/**
 		 * The class responsible for defining all actions that occur in the admin area.
 		 */
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-trelis-crypto-payments-admin.php';
-		
-		if(class_exists('MeprBaseCtrl')){
+		require_once plugin_dir_path(dirname(__FILE__)) . 'admin/class-trelis-crypto-payments-admin.php';
 
-			require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/MeprTrelisAPI.php';
-			
-			require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/MeprTrelisGateway.php';
+		if (class_exists('MeprBaseCtrl')) {
 
+			require_once plugin_dir_path(dirname(__FILE__)) . 'admin/MeprTrelisAPI.php';
+
+			require_once plugin_dir_path(dirname(__FILE__)) . 'admin/MeprTrelisGateway.php';
 		}
 
 		/**
 		 * The class responsible for defining all actions that occur in the public-facing
 		 * side of the site.
 		 */
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'public/class-trelis-crypto-payments-public.php';
-		
+		require_once plugin_dir_path(dirname(__FILE__)) . 'public/class-trelis-crypto-payments-public.php';
+
 
 		$this->loader = new Trelis_Crypto_Payments_Loader();
-
 	}
 
 	/**
@@ -154,12 +155,12 @@ class Trelis_Crypto_Payments {
 	 * @since    1.0.0
 	 * @access   private
 	 */
-	private function set_locale() {
+	private function set_locale()
+	{
 
 		$plugin_i18n = new Trelis_Crypto_Payments_i18n();
 
-		$this->loader->add_action( 'plugins_loaded', $plugin_i18n, 'load_plugin_textdomain' );
-
+		$this->loader->add_action('plugins_loaded', $plugin_i18n, 'load_plugin_textdomain');
 	}
 
 	/**
@@ -169,23 +170,23 @@ class Trelis_Crypto_Payments {
 	 * @since    1.0.0
 	 * @access   private
 	 */
-	private function define_admin_hooks() {
+	private function define_admin_hooks()
+	{
 
-		$plugin_admin = new Trelis_Crypto_Payments_Admin( $this->get_plugin_name(), $this->get_version() );
+		$plugin_admin = new Trelis_Crypto_Payments_Admin($this->get_plugin_name(), $this->get_version());
 
-		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
-		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
+		$this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_styles');
+		$this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts');
 		$this->loader->add_filter('woocommerce_payment_gateways', $plugin_admin, 'trelis_add_gateway_class');
-		$this->loader->add_filter( 'woocommerce_currencies', $plugin_admin, 'trelis_add_crypto');
-		$this->loader->add_filter( 'woocommerce_currency_symbol', $plugin_admin, 'trelis_add_currency_symbols', 10, 2 );
-		$this->loader->add_action( 'plugins_loaded', $plugin_admin, 'trelis_init_gateway_class');
-		$this->loader->add_filter( 'woocommerce_add_to_cart_validation',  $plugin_admin, 'trelis_validate_add_to_cart',10,2);
-		$this->loader->add_filter( 'woocommerce_available_payment_gateways', $plugin_admin, 'check_if_subscription_is_day_or_week' );
-		$this->loader->add_filter( 'mepr-gateway-paths', $plugin_admin,  'mepr_gateway_path');
-
+		$this->loader->add_filter('woocommerce_currencies', $plugin_admin, 'trelis_add_crypto');
+		$this->loader->add_filter('woocommerce_currency_symbol', $plugin_admin, 'trelis_add_currency_symbols', 10, 2);
+		$this->loader->add_action('plugins_loaded', $plugin_admin, 'trelis_init_gateway_class');
+		$this->loader->add_filter('woocommerce_add_to_cart_validation',  $plugin_admin, 'trelis_validate_add_to_cart', 10, 2);
+		$this->loader->add_filter('woocommerce_available_payment_gateways', $plugin_admin, 'check_if_subscription_is_day_or_week');
+		$this->loader->add_filter('mepr-gateway-paths', $plugin_admin,  'mepr_gateway_path');
 	}
 
-	
+
 
 	/**
 	 * Register all of the hooks related to the public-facing functionality
@@ -194,13 +195,13 @@ class Trelis_Crypto_Payments {
 	 * @since    1.0.0
 	 * @access   private
 	 */
-	private function define_public_hooks() {
+	private function define_public_hooks()
+	{
 
-		$plugin_public = new Trelis_Crypto_Payments_Public( $this->get_plugin_name(), $this->get_version() );
+		$plugin_public = new Trelis_Crypto_Payments_Public($this->get_plugin_name(), $this->get_version());
 
-		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
-		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
-
+		$this->loader->add_action('wp_enqueue_scripts', $plugin_public, 'enqueue_styles');
+		$this->loader->add_action('wp_enqueue_scripts', $plugin_public, 'enqueue_scripts');
 	}
 
 	/**
@@ -208,7 +209,8 @@ class Trelis_Crypto_Payments {
 	 *
 	 * @since    1.0.0
 	 */
-	public function run() {
+	public function run()
+	{
 		$this->loader->run();
 	}
 
@@ -219,7 +221,8 @@ class Trelis_Crypto_Payments {
 	 * @since     1.0.0
 	 * @return    string    The name of the plugin.
 	 */
-	public function get_plugin_name() {
+	public function get_plugin_name()
+	{
 		return $this->plugin_name;
 	}
 
@@ -229,7 +232,8 @@ class Trelis_Crypto_Payments {
 	 * @since     1.0.0
 	 * @return    Trelis_Crypto_Payments_Loader    Orchestrates the hooks of the plugin.
 	 */
-	public function get_loader() {
+	public function get_loader()
+	{
 		return $this->loader;
 	}
 
@@ -239,7 +243,8 @@ class Trelis_Crypto_Payments {
 	 * @since     1.0.0
 	 * @return    string    The version number of the plugin.
 	 */
-	public function get_version() {
+	public function get_version()
+	{
 		return $this->version;
 	}
 }
