@@ -207,7 +207,6 @@ class MeprTrelisGateway extends \MeprBaseRealGateway
 
 		// Initialize a new payment here
 		$response = (object) $this->trelis_api->send_request("create-subscription-link", $args);
-		print_r($response); die;
 
 		$str = explode("/", $response->data['subscriptionLink']);
 		$linkId = $str[4];
