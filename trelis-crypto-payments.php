@@ -28,7 +28,7 @@
  */
 
 // If this file is called directly, abort.
-if ( ! defined( 'WPINC' ) ) {
+if (!defined('WPINC')) {
 	die;
 }
 
@@ -37,22 +37,23 @@ if ( ! defined( 'WPINC' ) ) {
  * Start at version 1.0.0 and use SemVer - https://semver.org
  * Rename this for your plugin and update it as you release new versions.
  */
-define( 'TRELIS_CRYPTO_PAYMENTS_VERSION', '1.0.0' );
+define('TRELIS_CRYPTO_PAYMENTS_VERSION', '1.0.0');
 
 
-define('TRELIS_API_URL','https://api.trelis.com/dev-env/dev-api/');
+define('TRELIS_API_URL', 'https://api.trelis.com/dev-env/dev-api/');
 
-define( 'TRELIS_PLUGIN_URL', trailingslashit( plugin_dir_url( __FILE__ ) ) );
-define( 'TRELIS_PLUGIN_DIR', trailingslashit( plugin_dir_path( __FILE__ ) ) );
-define( 'TRELIS_TESTING', false );
+define('TRELIS_PLUGIN_URL', trailingslashit(plugin_dir_url(__FILE__)));
+define('TRELIS_PLUGIN_DIR', trailingslashit(plugin_dir_path(__FILE__)));
+define('TRELIS_TESTING', false);
 
 
 /**
  * The code that runs during plugin activation.
  * This action is documented in includes/class-trelis-crypto-payments-activator.php
  */
-function activate_trelis_crypto_payments() {
-	require_once plugin_dir_path( __FILE__ ) . 'includes/class-trelis-crypto-payments-activator.php';
+function activate_trelis_crypto_payments()
+{
+	require_once plugin_dir_path(__FILE__) . 'includes/class-trelis-crypto-payments-activator.php';
 	Trelis_Crypto_Payments_Activator::activate();
 }
 
@@ -60,19 +61,20 @@ function activate_trelis_crypto_payments() {
  * The code that runs during plugin deactivation.
  * This action is documented in includes/class-trelis-crypto-payments-deactivator.php
  */
-function deactivate_trelis_crypto_payments() {
-	require_once plugin_dir_path( __FILE__ ) . 'includes/class-trelis-crypto-payments-deactivator.php';
+function deactivate_trelis_crypto_payments()
+{
+	require_once plugin_dir_path(__FILE__) . 'includes/class-trelis-crypto-payments-deactivator.php';
 	Trelis_Crypto_Payments_Deactivator::deactivate();
 }
 
-register_activation_hook( __FILE__, 'activate_trelis_crypto_payments' );
-register_deactivation_hook( __FILE__, 'deactivate_trelis_crypto_payments' );
+register_activation_hook(__FILE__, 'activate_trelis_crypto_payments');
+register_deactivation_hook(__FILE__, 'deactivate_trelis_crypto_payments');
 
 /**
  * The core plugin class that is used to define internationalization,
  * admin-specific hooks, and public-facing site hooks.
  */
-require plugin_dir_path( __FILE__ ) . 'includes/class-trelis-crypto-payments.php';
+require plugin_dir_path(__FILE__) . 'includes/class-trelis-crypto-payments.php';
 
 /**
  * Begins execution of the plugin.
@@ -83,10 +85,10 @@ require plugin_dir_path( __FILE__ ) . 'includes/class-trelis-crypto-payments.php
  *
  * @since    1.0.0
  */
-function run_trelis_crypto_payments() {
+function run_trelis_crypto_payments()
+{
 
 	$plugin = new Trelis_Crypto_Payments();
 	$plugin->run();
-
 }
 run_trelis_crypto_payments();

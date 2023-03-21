@@ -20,7 +20,8 @@
  * @subpackage Trelis_Crypto_Payments/admin
  * @author     Trelis <jalpesh.fullstack10@gmail.com>
  */
-class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
+class WC_Trelis_Rest_Api extends WC_Payment_Gateway
+{
 
 	/**
 	 * The ID of this plugin.
@@ -54,14 +55,15 @@ class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
 	 *
 	 * @since    1.0.0
 	 */
-	public function __construct() {
+	public function __construct()
+	{
 		$this->apiKey = $this->get_option('api_key');
 		$this->apiSecret = $this->get_option('api_secret');
 		$this->isPrime = $this->get_option('prime') === "yes";
 		$this->isGasless = $this->get_option('gasless') === "yes";
-		add_action( 'rest_api_init', array( $this, 'register_trelis_payment' ) );
+		add_action('rest_api_init', array($this, 'register_trelis_payment'));
 	}
-	
+
 	public function register_trelis_payment()
 	{
 		register_rest_route(
@@ -69,7 +71,7 @@ class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
 			'/payment',
 			array(
 				'methods' => 'POST',
-				'callback' => array( $this, 'trelis_payment_confirmation_callback' ),
+				'callback' => array($this, 'trelis_payment_confirmation_callback'),
 				'permission_callback' => '__return_true'
 			),
 		);
@@ -84,29 +86,29 @@ class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
 		$json = file_get_contents('php://input');
 
 		$expected_signature = hash_hmac('sha256', $json,  $trelis->get_option('webhook_secret'));
-		
-		$headers = array('Content-Type: text/html; charset=UTF-8');
-		wp_mail( 'jalpesh@yopmail.com', 'Trelis payment webhook response', $json, $headers );
-		$this->custom_logs_rest('payment webhook response',$json);
 
-		if ( $expected_signature != $_SERVER["HTTP_SIGNATURE"])
-			return __('Failed','trelis-crypto-payments');
+		$headers = array('Content-Type: text/html; charset=UTF-8');
+		wp_mail('jalpesh@yopmail.com', 'Trelis payment webhook response', $json, $headers);
+		$this->custom_logs_rest('payment webhook response', $json);
+
+		if ($expected_signature != $_SERVER["HTTP_SIGNATURE"])
+			return __('Failed', 'trelis-crypto-payments');
 
 		$data = json_decode($json);
 
-		if($data->mechantProductKey){
+		if ($data->mechantProductKey) {
 			$meta_value = $data->mechantProductKey;
-		}else {
+		} else {
 			$meta_value = $data->subscriptionLink;
 		}
 
-		if($data->from){
+		if ($data->from) {
 			$customerWalletId = $data->from;
-		}else{
+		} else {
 			$customerWalletId = $data->customer;
 		}
 
-		$orders = get_posts( array(
+		$orders = get_posts(array(
 			'post_type' => 'shop_order',
 			'posts_per_page' => -1,
 			'post_status' => 'any',
@@ -115,123 +117,130 @@ class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
 		));
 
 		if (empty($orders))
-			return __('Order not found','trelis-crypto-payments');
-		
+			return __('Order not found', 'trelis-crypto-payments');
+
 
 		$order_id = $orders[0]->ID;
 		$order = wc_get_order($order_id);
-		$subscription = wcs_get_subscriptions_for_order( $order_id );
-		if($subscription){
-			$subscription = reset( $subscription );
-			$subscriptionId  = $subscription->get_id();	
+		$subscription = wcs_get_subscriptions_for_order($order_id);
+		if ($subscription) {
+			$subscription = reset($subscription);
+			$subscriptionId  = $subscription->get_id();
 		}
-		
-		if(strpos($data->event, 'subscription') !== false) {
-			
-			update_post_meta( $subscriptionId, 'customerWalletId', $customerWalletId );
-			
-			if($data->event === 'subscription.charge.failed' || $data->event === "charge.failed") {
-				$order->add_order_note(__('Trelis Payment Failed! Expected amount ','trelis-crypto-payments') . $data->requiredPaymentAmount . __(', attempted ','trelis-crypto-payments') . $data->paidAmount, true);
+
+		if (strpos($data->event, 'subscription') !== false) {
+
+			update_post_meta($subscriptionId, 'customerWalletId', $customerWalletId);
+
+			if ($data->event === 'subscription.charge.failed' || $data->event === "charge.failed") {
+				$order->add_order_note(__('Trelis Payment Failed! Expected amount ', 'trelis-crypto-payments') . $data->requiredPaymentAmount . __(', attempted ', 'trelis-crypto-payments') . $data->paidAmount, true);
 				$order->save();
-				return __('Failed','trelis-crypto-payments');
-			}
-			
-			if ($data->event == "subscription.create.failed") {
-				$order->add_order_note(__('Subscription not created','trelis-crypto-payments'), true);
-				return __('Subscription not created','trelis-crypto-payments');
-			}
-			
-			if ($data->event == "subscription.create.success") {
-				
-				$order->add_order_note(__('Subscription created!','trelis-crypto-payments'), false);
-				return __('Subscription created','trelis-crypto-payments');
+				return __('Failed', 'trelis-crypto-payments');
 			}
 
-			if($data->event == "subscription.charge.success") {
-				
-				$order->add_order_note(__('Payment complete!','trelis-crypto-payments'), true);
+			if ($data->event == "subscription.create.failed") {
+				$order->add_order_note(__('Subscription not created', 'trelis-crypto-payments'), true);
+				return __('Subscription not created', 'trelis-crypto-payments');
+			}
+
+			if ($data->event == "subscription.create.success") {
+
+				$order->add_order_note(__('Subscription created!', 'trelis-crypto-payments'), false);
+				return __('Subscription created', 'trelis-crypto-payments');
+			}
+
+			if ($data->event == "subscription.charge.success") {
+
+				$order->add_order_note(__('Payment complete!', 'trelis-crypto-payments'), true);
 				$order->payment_complete();
 				$order->reduce_order_stock();
-	
+
 				// call the run subscription API once subscription completes
-				$this->run_subscription_api($order,$subscriptionId,array($subscriptionId));
-				
-				if ( isset( WC()->cart ) ) {
+				$this->run_subscription_api($order, $subscriptionId, array($subscriptionId));
+
+				if (isset(WC()->cart)) {
 					WC()->cart->empty_cart();
 				}
-				return __('Processed!','trelis-crypto-payments');
+				return __('Processed!', 'trelis-crypto-payments');
 			}
 
-			if($data->event == "subscription.cancellation.success") { 
-				update_post_meta( $subscriptionId, 'trelis_payment_method', 0 );
-				$order->add_order_note(__('Subscription cancel successfully !','trelis-crypto-payments'), true);
-				// $order->add_order_note(__('Subscription Cancelled','trelis-crypto-payments'), true);
+			if ($data->event == "subscription.cancellation.success") {
+				update_post_meta($subscriptionId, 'trelis_payment_method', 0);
+
+				// Get an array of WC_Subscription objects
+				$subscriptions = wcs_get_subscriptions_for_order($order_id);
+				foreach ($subscriptions as $subscription_id => $subscription) {
+					// Change the status of the WC_Subscription object
+					$subscription->update_status('cancelled');
+				}
+
+				$order->add_order_note(__('Subscription cancelled successfully !', 'trelis-crypto-payments'), true);
 			}
 
-			if($data->event == "subscription.cancellation.failed") { 
-				update_post_meta( $subscriptionId, 'trelis_payment_method', 0 );
-				$order->add_order_note(__('Subscription cancelation failed !','trelis-crypto-payments'), true);
+			if ($data->event == "subscription.cancellation.failed") {
+				update_post_meta($subscriptionId, 'trelis_payment_method', 0);
+				$order->add_order_note(__('Subscription cancelation failed !', 'trelis-crypto-payments'), true);
 			}
-
 		} else {
-			
-			
-			if ($order->get_status() == 'processing' || $order->get_status() == 'complete'){
-				return __('Already processed','trelis-crypto-payments');
+
+
+			if ($order->get_status() == 'processing' || $order->get_status() == 'complete') {
+				return __('Already processed', 'trelis-crypto-payments');
 			}
-			
+
 			if ($data->event === "submission.failed" || $data->event === "charge.failed") {
-				$order->add_order_note(__('Trelis Payment Failed! Expected amount ','trelis-crypto-payments') . $data->requiredPaymentAmount . __(', attempted ','trelis-crypto-payments') . $data->paidAmount, true);
+				$order->add_order_note(__('Trelis Payment Failed! Expected amount ', 'trelis-crypto-payments') . $data->requiredPaymentAmount . __(', attempted ', 'trelis-crypto-payments') . $data->paidAmount, true);
 				$order->save();
-				return __('Failed','trelis-crypto-payments');
+				return __('Failed', 'trelis-crypto-payments');
 			}
-			
+
 			if ($data->event == "charge.failed") {
-				$order->add_order_note(__('Payment not complete','trelis-crypto-payments'), true);
-				return __('Pending','trelis-crypto-payments');
+				$order->add_order_note(__('Payment not complete', 'trelis-crypto-payments'), true);
+				return __('Pending', 'trelis-crypto-payments');
 			}
-			
+
 			if ($data->event == "charge.success") {
-				$order->add_order_note(__('Payment complete!','trelis-crypto-payments'), true);
+				$order->add_order_note(__('Payment complete!', 'trelis-crypto-payments'), true);
 				$order->payment_complete();
 				$order->reduce_order_stock();
 				// Remove cart.
-				if ( isset( WC()->cart ) ) {
+				if (isset(WC()->cart)) {
 					WC()->cart->empty_cart();
 				}
-				return __('Processed!','trelis-crypto-payments');
+				return __('Processed!', 'trelis-crypto-payments');
 			}
 			// return __('Processed!','trelis-crypto-payments');
 		}
-		
 	}
-	public function custom_logs_rest($apitype,$message) { 
-		if(is_array($message)) { 
-			$message = json_encode($message); 
-		} 
+	public function custom_logs_rest($apitype, $message)
+	{
+		if (is_array($message)) {
+			$message = json_encode($message);
+		}
 		$upload_dir = wp_get_upload_dir();
-		$file = fopen($upload_dir['basedir']."/trelis_logs.log","a"); 
-		echo fwrite($file, "\n" . date('Y-m-d h:i:s') ." :: ". $apitype ." :: " . $message); 
-		fclose($file); 
+		$file = fopen($upload_dir['basedir'] . "/trelis_logs.log", "a");
+		echo fwrite($file, "\n" . date('Y-m-d h:i:s') . " :: " . $apitype . " :: " . $message);
+		fclose($file);
 	}
 
-	public function run_subscription_api($order, $subscriptionId, $customerWalletIds) {
-		$args = array (
-			'headers' => array (
+	public function run_subscription_api($order, $subscriptionId, $customerWalletIds)
+	{
+		$args = array(
+			'headers' => array(
 				'Content-Type' => "application/json"
 			),
-			'body' => json_encode( array (
+			'body' => json_encode(array(
 				'customers' => $customerWalletIds
-			) )
+			))
 		);
 
-		$apiUrl = TRELIS_API_URL.'run-subscription?apiKey=' . $this->apiKey . '&apiSecret=' . $this->apiSecret;
+		$apiUrl = TRELIS_API_URL . 'run-subscription?apiKey=' . $this->apiKey . '&apiSecret=' . $this->apiSecret;
 		$response = wp_remote_post($apiUrl, $args);
-		
+
 		// Debug Start
 		$headers = array('Content-Type: text/html; charset=UTF-8');
-		wp_mail( 'jalpesh@yopmail.com', 'Trelis run subscription API', print_r($response,true), $headers );
-		$this->custom_logs('run subscription api in webhook response',$response);
+		wp_mail('jalpesh@yopmail.com', 'Trelis run subscription API', print_r($response, true), $headers);
+		$this->custom_logs('run subscription api in webhook response', $response);
 		// Debug End
 
 		/*if (!is_wp_error($response)) {
@@ -253,5 +262,3 @@ class WC_Trelis_Rest_Api extends WC_Payment_Gateway {
 		} */
 	}
 }
-
-
